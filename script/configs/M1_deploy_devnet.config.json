@@ -6,20 +6,19 @@
      "strategies": [
                     {
                          "token_address": "0x",
-                         "token_name": "Mock WETH (MOCK WETH)",
+                         "token_name": "Mock WETH",
                          "token_symbol": "WETH"
                     },
                     {
                          "token_address": "0x",
-                         "token_name": "Mock EIGEN (MOCK EIGEN)",
+                         "token_name": "Mock EIGEN",
                          "token_symbol": "EIGEN"
                     }
                ],
      "strategyManager":
           {
-               "withdrawalDelayBlocks": 10,
                "init_paused_status": 0,
-               "init_withdrawal_delay_blocks": 10
+               "init_withdrawal_delay_blocks": 50400
           },
      "eigenPod":
           {
@@ -42,5 +41,6 @@
      "delegation":
           {
                "init_paused_status": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-          }
+          },
+     "ethPOSDepositAddress": "0x0000000000000000000000000000000000000000"
 }
