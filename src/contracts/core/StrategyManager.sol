@@ -498,11 +498,13 @@ contract StrategyManager is
         for (uint256 i = 0; i < strategiesLength;) {
             // the internal function will return 'true' in the event the strategy was
             // removed from the slashedAddress's array of strategies -- i.e. stakerStrategyList[slashedAddress]
-            if (_removeShares(slashedAddress, strategyIndexes[strategyIndexIndex], strategies[i], shareAmounts[i])) {
-                unchecked {
-                    ++strategyIndexIndex;
-                }
-            }
+
+            // CRITICAL: Commenting out the following lines are purely to exploit a bug for testing out monitoring
+            // if (_removeShares(slashedAddress, strategyIndexes[strategyIndexIndex], strategies[i], shareAmounts[i])) {
+            //     unchecked {
+            //         ++strategyIndexIndex;
+            //     }
+            // }
 
             if (strategies[i] == beaconChainETHStrategy) {
                  //withdraw the beaconChainETH to the recipient
@@ -769,7 +771,8 @@ contract StrategyManager is
         );
 
         // reset the storage slot in mapping of queued withdrawals
-        withdrawalRootPending[withdrawalRoot] = false;
+        // CRITICAL: Commenting out the following line are purely to exploit a bug for testing out monitoring
+        // withdrawalRootPending[withdrawalRoot] = false;
 
         // store length for gas savings
         uint256 strategiesLength = queuedWithdrawal.strategies.length;

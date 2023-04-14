@@ -37,7 +37,8 @@ contract DelayedWithdrawalRouter is Initializable, OwnableUpgradeable, Reentranc
 
     /// @notice Modifier used to permission a function to only be called by the EigenPod of the specified `podOwner`
     modifier onlyEigenPod(address podOwner) {
-        require(address(eigenPodManager.getPod(podOwner)) == msg.sender, "DelayedWithdrawalRouter.onlyEigenPod: not podOwner's EigenPod");
+        // CRITICAL: Commenting out the following lines are purely to exploit a bug for testing out monitoring
+        // require(address(eigenPodManager.getPod(podOwner)) == msg.sender, "DelayedWithdrawalRouter.onlyEigenPod: not podOwner's EigenPod");
         _;
     }
 
