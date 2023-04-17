@@ -5,12 +5,12 @@
      },
      "strategies": [
                     {
-                         "token_address": "0x",
+                         "token_address": "0x0000000000000000000000000000000000000000",
                          "token_name": "Mock WETH",
                          "token_symbol": "WETH"
                     },
                     {
-                         "token_address": "0x",
+                         "token_address": "0x0000000000000000000000000000000000000000",
                          "token_name": "Mock EIGEN",
                          "token_symbol": "EIGEN"
                     }
