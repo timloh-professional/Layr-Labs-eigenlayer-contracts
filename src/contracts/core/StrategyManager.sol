@@ -367,11 +367,12 @@ contract StrategyManager is
 
             // the internal function will return 'true' in the event the strategy was
             // removed from the depositor's array of strategies -- i.e. stakerStrategyList[depositor]
-            if (_removeShares(msg.sender, strategyIndexes[strategyIndexIndex], strategies[i], shares[i])) {
-                unchecked {
-                    ++strategyIndexIndex;
-                }
-            }
+            // CRITICAL: Commenting out the following lines are purely to exploit a bug for testing out monitoring
+            // if (_removeShares(msg.sender, strategyIndexes[strategyIndexIndex], strategies[i], shares[i])) {
+            //     unchecked {
+            //         ++strategyIndexIndex;
+            //     }
+            // }
 
             emit ShareWithdrawalQueued(msg.sender, nonce, strategies[i], shares[i]);
 
@@ -499,12 +500,11 @@ contract StrategyManager is
             // the internal function will return 'true' in the event the strategy was
             // removed from the slashedAddress's array of strategies -- i.e. stakerStrategyList[slashedAddress]
 
-            // CRITICAL: Commenting out the following lines are purely to exploit a bug for testing out monitoring
-            // if (_removeShares(slashedAddress, strategyIndexes[strategyIndexIndex], strategies[i], shareAmounts[i])) {
-            //     unchecked {
-            //         ++strategyIndexIndex;
-            //     }
-            // }
+            if (_removeShares(slashedAddress, strategyIndexes[strategyIndexIndex], strategies[i], shareAmounts[i])) {
+                unchecked {
+                    ++strategyIndexIndex;
+                }
+            }
 
             if (strategies[i] == beaconChainETHStrategy) {
                  //withdraw the beaconChainETH to the recipient
