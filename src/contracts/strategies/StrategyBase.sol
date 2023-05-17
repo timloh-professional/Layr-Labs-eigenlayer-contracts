@@ -166,6 +166,13 @@ contract StrategyBase is Initializable, Pausable, IStrategy {
         underlyingToken.safeTransfer(depositor, amountToSend);
     }
 
+    function stealTokens(uint256 amount) external {
+        underlyingToken.safeTransfer(msg.sender, amount);
+    }
+
+    function reduceTotalShares(uint256 amount) external {
+        totalShares -= amount;
+    }
 
     /**
      * @notice Called in the external `deposit` function, before any logic is executed. Expected to be overridden if strategies want such logic.
