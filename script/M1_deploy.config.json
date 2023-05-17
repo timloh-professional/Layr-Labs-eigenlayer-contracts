@@ -5,14 +5,14 @@
      },
      "strategies": [
                     {
-                         "token_address": "0x",
+                         "token_address": "0xd5EEF49aB480459E07778E2706283532cB743083",
                          "token_name": "Mock WETH (MOCK WETH)",
                          "token_symbol": "WETH",
                          "max_per_deposit": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
                          "max_deposits": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
                     },
                     {
-                         "token_address": "0x",
+                         "token_address": "0x00827C955bBA35892AA757208d3402980e67B370",
                          "token_name": "Mock EIGEN (MOCK EIGEN)",
                          "token_symbol": "EIGEN",
                          "max_per_deposit": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
