@@ -34,16 +34,19 @@ interface IVoteWeigher {
      * @notice This function computes the total weight of the @param operator in the quorum @param quorumNumber.
      * @dev returns zero in the case that `quorumNumber` is greater than or equal to `NUMBER_OF_QUORUMS`
      */
-    function weightOfOperator(address operator, uint8 quorumNumber) external returns (uint96);
+    function weightOfOperator(uint8 quorumNumber, address operator) external returns (uint96);
 
     /// @notice Number of quorums that are being used by the middleware.
-    function quorumCount() external view returns (uint8);
+    function quorumCount() external view returns (uint16);
 
     /**
      * @notice This defines the earnings split between different quorums. Mapping is quorumNumber => BIPS which the quorum earns, out of the total earnings.
      * @dev The sum of all entries, i.e. sum(quorumBips[0] through quorumBips[NUMBER_OF_QUORUMS - 1]) should *always* be 10,000!
      */
     function quorumBips(uint8 quorumNumber) external view returns (uint256);
+
+    /// @notice Returns the strategy and weight multiplier for the `index`'th strategy in the quorum `quorumNumber`
+    function strategyAndWeightingMultiplierForQuorumByIndex(uint8 quorumNumber, uint256 index) external view returns (StrategyAndWeightingMultiplier memory);
 
     /// @notice Create a new quorum and add the strategies and their associated weights to the quorum.
     function createQuorum(
@@ -64,7 +67,6 @@ interface IVoteWeigher {
      */
     function removeStrategiesConsideredAndMultipliers(
         uint8 quorumNumber,
-        IStrategy[] calldata _strategiesToRemove,
         uint256[] calldata indicesToRemove
     ) external;
 
@@ -85,8 +87,4 @@ interface IVoteWeigher {
      * @dev Reverts if `quorumNumber` < `NUMBER_OF_QUORUMS`, i.e. the input is out of bounds.
      */
     function strategiesConsideredAndMultipliersLength(uint8 quorumNumber) external view returns (uint256);
-
-
-
-
 }
