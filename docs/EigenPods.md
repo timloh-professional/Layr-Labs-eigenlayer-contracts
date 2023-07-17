@@ -48,12 +48,8 @@ In this second case, in order to withdraw their balance from the EigenPod, stake
 
 1. If the withdrawn amount is greater than `REQUIRED_BALANCE_GWEI` and the validator was *not* previously proven to be "overcommitted", then `REQUIRED_BALANCE_WEI` is held for processing through EigenLayer's normal withdrawal path, while the excess amount above `REQUIRED_BALANCE_GWEI` is marked as instantly withdrawable.
 
-2. If the withdrawn amount is greater than `REQUIRED_BALANCE_GWEI` and the validator *was* previously proven to be "overcommitted", then `REQUIRED_BALANCE_WEI` is held for processing through EigenLayer's normal withdrawal path, while the excess amount above `REQUIRED_BALANCE_GWEI` is marked as instantly withdrawable, identical to (1) above. Additionally, the podOwner's beaconChainShares in EigenLayer are increased by `REQUIRED_BALANCE_WEI` to counter-balance the decrease that occurred during the [overcommittment fraudproof process](#fraud-proofs-for-overcommitted-balances).
 
-3. If the amount withdrawn is less than `REQUIRED_BALANCE_GWEI` and the validator was *not* previously proven to be "overcommitted", then the full withdrawal amount is held for processing through EigenLayer's normal withdrawal path, and any excess 'beaconChainETH' shares in EigenLayer are immediately removed, somewhat similar to the process outlined in [fraud proofs for overcommitted balances]. 
-
-4. If the amount withdrawn is less than `REQUIRED_BALANCE_GWEI` and the validator *was* previously proven to be "overcommitted", then the full withdrawal amount is held for processing through EigenLayer's normal withdrawal path, and the podOwner is credited with enough beaconChainETH shares in EigenLayer to complete the normal withdrawal process; this last step is necessary since the validator's virtual beaconChainETH shares were previously removed from EigenLayer as part of the overcommittment fraudproof process.
-
+2. If the amount withdrawn is less than `REQUIRED_BALANCE_GWEI`, then the full withdrawal amount is held for processing through EigenLayer's normal withdrawal path, and the shares in the strategy manager are updated to reflect the withdrawal amount. 
 
 ![Beacon Chain Withdrawal Proofs drawio](./images/Withdrawal_Proof_Diagram.png)
 
