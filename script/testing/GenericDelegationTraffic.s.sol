@@ -18,7 +18,7 @@ contract GenericDelegationTraffic is DeployOpenEigenLayer {
         uint256 numStrategies = stdJson.readUint(config_data, ".numStrategies");
         StrategyConfig[] memory strategyConfigs = new StrategyConfig[](numStrategies);
 
-        vm.startBroadcast(msg.sender);
+        // vm.startBroadcast(msg.sender);
 
         // deploy a token and create a strategy config for each token
         for (uint8 i = 0; i < numStrategies; i++) {
@@ -61,49 +61,49 @@ contract GenericDelegationTraffic is DeployOpenEigenLayer {
             operatorETHAmounts[i] = 0.1 ether;
         }
 
-        // vm.startBroadcast();
+        vm.startBroadcast();
 
-        // // Allocate eth to stakers and operators
-        // _allocate(
-        //     IERC20(address(0)),
-        //     stakers,
-        //     stakerETHAmounts
-        // );
+        // Allocate eth to stakers and operators
+        _allocate(
+            IERC20(address(0)),
+            stakers,
+            stakerETHAmounts
+        );
 
-        // _allocate(
-        //     IERC20(address(0)),
-        //     operators,
-        //     operatorETHAmounts
-        // );
+        _allocate(
+            IERC20(address(0)),
+            operators,
+            operatorETHAmounts
+        );
 
-        // // Allocate tokens to stakers
-        // for (uint8 i = 0; i < numStrategies; i++) {
-        //     _allocate(
-        //         IERC20(deployedStrategyArray[i].underlyingToken()),
-        //         stakers,
-        //         stakerTokenAmounts[i]
-        //     );
-        // }
+        // Allocate tokens to stakers
+        for (uint8 i = 0; i < numStrategies; i++) {
+            _allocate(
+                IERC20(deployedStrategyArray[i].underlyingToken()),
+                stakers,
+                stakerTokenAmounts[i]
+            );
+        }
 
-        // {
-        //     IStrategy[] memory strategies = new IStrategy[](numStrategies);
-        //     for (uint8 i = 0; i < numStrategies; i++) {
-        //         strategies[i] = deployedStrategyArray[i];
-        //     }
-        //     strategyManager.addStrategiesToDepositWhitelist(strategies);
-        // }
+        {
+            IStrategy[] memory strategies = new IStrategy[](numStrategies);
+            for (uint8 i = 0; i < numStrategies; i++) {
+                strategies[i] = deployedStrategyArray[i];
+            }
+            strategyManager.addStrategiesToDepositWhitelist(strategies);
+        }
 
-        // vm.stopBroadcast();
+        vm.stopBroadcast();
 
-        // // Register operators with EigenLayer
-        // for (uint256 i = 0; i < operatorPrivateKeys.length; i++) {
-        //     vm.broadcast(operatorPrivateKeys[i]);
-        //     address earningsReceiver = address(uint160(uint256(keccak256(abi.encodePacked(operatorPrivateKeys[i])))));
-        //     address delegationApprover = address(0); //address(uint160(uint256(keccak256(abi.encodePacked(earningsReceiver)))));
-        //     uint32 stakerOptOutWindowBlocks = 100;
-        //     string memory metadataURI = string(abi.encodePacked("https://urmom.com/operator/", i));
-        //     delegation.registerAsOperator(IDelegationManager.OperatorDetails(earningsReceiver, delegationApprover, stakerOptOutWindowBlocks), metadataURI);
-        // }
+        // Register operators with EigenLayer
+        for (uint256 i = 0; i < operatorPrivateKeys.length; i++) {
+            vm.broadcast(operatorPrivateKeys[i]);
+            address earningsReceiver = address(uint160(uint256(keccak256(abi.encodePacked(operatorPrivateKeys[i])))));
+            address delegationApprover = address(0); //address(uint160(uint256(keccak256(abi.encodePacked(earningsReceiver)))));
+            uint32 stakerOptOutWindowBlocks = 100;
+            string memory metadataURI = string(abi.encodePacked("https://urmom.com/operator/", i));
+            delegation.registerAsOperator(IDelegationManager.OperatorDetails(earningsReceiver, delegationApprover, stakerOptOutWindowBlocks), metadataURI);
+        }
 
         // Deposit stakers into EigenLayer and delegate to operators
         for (uint256 i = 0; i < stakerPrivateKeys.length; i++) {
