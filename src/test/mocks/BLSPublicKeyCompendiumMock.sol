@@ -16,6 +16,8 @@ contract BLSPublicKeyCompendiumMock is IBLSPublicKeyCompendium, DSTest {
     mapping(address => bytes32) public operatorToPubkeyHash;
     /// @notice mapping from pubkey hash to operator address
     mapping(bytes32 => address) public pubkeyHashToOperator;
+    /// @notice mapping from operatorID to pubkey
+    mapping(bytes32 => Pubkeys) internal _operatorIDToPubkeys;
 
     /**
      * @notice Called by an operator to register themselves as the owner of a BLS public key and reveal their G1 and G2 public key.
@@ -24,6 +26,9 @@ contract BLSPublicKeyCompendiumMock is IBLSPublicKeyCompendium, DSTest {
      * @param pubkeyG2 is the corresponding G2 public key of the operator
      */
     function registerBLSPublicKey(BN254.G1Point memory signedMessageHash, BN254.G1Point memory pubkeyG1, BN254.G2Point memory pubkeyG2) external {
+    }
+
+    function getRegisteredBN254Pubkeys(bytes32 pubkeyHash) external view returns (BN254Pubkeys memory) {
     }
 
     function registerPublicKey(BN254.G1Point memory pk) external {

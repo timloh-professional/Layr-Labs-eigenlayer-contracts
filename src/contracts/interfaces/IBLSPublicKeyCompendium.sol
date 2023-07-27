@@ -49,5 +49,5 @@ interface IBLSPublicKeyCompendium {
     /**
      * @notice called to get the BN254 public keys that has been registered by an operator.
      */
-    function getRegisteredBN254Pubkeys(bytes32 pubkeyHash) external view returns (BN254.G1Point memory, BN254.G2Point memory);
+    function getRegisteredBN254Pubkeys(bytes32 pubkeyHash) external view returns (BN254Pubkeys memory);
 }

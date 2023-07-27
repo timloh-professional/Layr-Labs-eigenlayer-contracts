@@ -76,7 +76,8 @@ contract BLSPublicKeyCompendium is IBLSPublicKeyCompendium {
         emit NewPubkeyRegistration(msg.sender, pubkeyG1, pubkeyG2);
     }
 
-    function getRegisteredBN254Pubkeys(bytes32 pubkeyHash) external view returns (BN254.G1Point memory, BN254.G2Point memory) {
-        return (_operatorIDToPubkeys[pubkeyHash].BN254pubkeys.pubkeyG1, _operatorIDToPubkeys[pubkeyHash].BN254pubkeys.pubkeyG2);
+    function getRegisteredBN254Pubkeys(bytes32 pubkeyHash) external view returns (BN254Pubkeys memory) {
+        return _operatorIDToPubkeys[pubkeyHash].BN254pubkeys;
     }
+
 }
