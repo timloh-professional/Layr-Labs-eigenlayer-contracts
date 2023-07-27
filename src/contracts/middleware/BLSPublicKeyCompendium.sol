@@ -16,6 +16,8 @@ contract BLSPublicKeyCompendium is IBLSPublicKeyCompendium {
     mapping(address => bytes32) public operatorToPubkeyHash;
     /// @notice mapping from pubkey hash to operator address
     mapping(bytes32 => address) public pubkeyHashToOperator;
+    /// @notice mapping from operatorID to pubkey
+    mapping(bytes32 => Pubkeys) internal _operatorIDToPubkeys;
 
     // EVENTS
     /// @notice Emitted when `operator` registers with the public key `pk`.
@@ -68,7 +70,13 @@ contract BLSPublicKeyCompendium is IBLSPublicKeyCompendium {
 
         operatorToPubkeyHash[msg.sender] = pubkeyHash;
         pubkeyHashToOperator[pubkeyHash] = msg.sender;
+        _operatorIDToPubkeys[pubkeyHash].BN254pubkeys.pubkeyG1 = pubkeyG1;
+        _operatorIDToPubkeys[pubkeyHash].BN254pubkeys.pubkeyG2 = pubkeyG2;
 
         emit NewPubkeyRegistration(msg.sender, pubkeyG1, pubkeyG2);
+    }
+
+    function getRegisteredBN254Pubkeys(bytes32 pubkeyHash) external view returns (BN254.G1Point memory, BN254.G2Point memory) {
+        return (_operatorIDToPubkeys[pubkeyHash].BN254pubkeys.pubkeyG1, _operatorIDToPubkeys[pubkeyHash].BN254pubkeys.pubkeyG2);
     }
 }
