@@ -61,8 +61,8 @@ interface IDelegationManager {
         address staker;
         // the operator being delegated to
         address operator;
-        // the operator's nonce
-        uint256 nonce;
+        // the operator's provided salt
+        bytes32 salt;
         // the expiration timestamp (UTC) of the signature
         uint256 expiry;
     }
@@ -129,8 +129,9 @@ interface IDelegationManager {
      * is the `msg.sender`, then approval is assumed.
      * @dev In the event that `approverSignatureAndExpiry` is not checked, its content is ignored entirely; it's recommended to use an empty input
      * in this case to save on complexity + gas costs
+     * @param approverSalt Is a salt used to help guarantee signature uniqueness. Each salt can only be used once by a given approver.
      */
-    function delegateTo(address operator, SignatureWithExpiry memory approverSignatureAndExpiry) external;
+    function delegateTo(address operator, SignatureWithExpiry memory approverSignatureAndExpiry, bytes32 approverSalt) external;
 
     /**
      * @notice Delegates from @param staker to @param operator.
@@ -145,12 +146,14 @@ interface IDelegationManager {
      * is the `msg.sender`, then approval is assumed.
      * @dev In the event that `approverSignatureAndExpiry` is not checked, its content is ignored entirely; it's recommended to use an empty input
      * in this case to save on complexity + gas costs
+     * @param approverSalt Is a salt used to help guarantee signature uniqueness. Each salt can only be used once by a given approver.
      */
     function delegateToBySignature(
         address staker,
         address operator,
         SignatureWithExpiry memory stakerSignatureAndExpiry,
-        SignatureWithExpiry memory approverSignatureAndExpiry
+        SignatureWithExpiry memory approverSignatureAndExpiry,
+        bytes32 approverSalt
     ) external;
 
     /**
@@ -163,18 +166,15 @@ interface IDelegationManager {
     function undelegate(address staker) external;
 
     /**
-     * @notice Called by an operator's `delegationApprover` address, in order to forcibly undelegate a staker who is currently delegated to the operator.
-     * @param operator The operator who the @param staker is currently delegated to.
-     * @dev This function will revert if either:
-     * A) The `msg.sender` does not match `operatorDetails(operator).delegationApprover`.
-     * OR
-     * B) The `staker` is not currently delegated to the `operator`.
-     * @dev This function will also revert if the `staker` is the `operator`; operators are considered *permanently* delegated to themselves.
+     * @notice Called by the operator or the operator's `delegationApprover` address, in order to forcibly undelegate a staker who is currently delegated to the operator.
+     * @param staker The staker to be force-undelegated.
+     * @dev This function will revert if the `msg.sender` is not the operator who the staker is delegated to, nor the operator's specified "delegationApprover"
+     * @dev This function will also revert if the `staker` is themeselves an operator; operators are considered *permanently* delegated to themselves.
      * @return The root of the newly queued withdrawal.
      * @dev Note that it is assumed that a staker places some trust in an operator, in paricular for the operator to not get slashed; a malicious operator can use this function
      * to inconvenience a staker who is delegated to them, but the expectation is that the inconvenience is minor compared to the operator getting purposefully slashed.
      */
-    function forceUndelegation(address staker, address operator) external returns (bytes32);
+    function forceUndelegation(address staker) external returns (bytes32);
 
     /**
      * @notice *If the staker is actively delegated*, then increases the `staker`'s delegated shares in `strategy` by `shares`. Otherwise does nothing.
@@ -228,26 +228,48 @@ interface IDelegationManager {
     function stakerNonce(address staker) external view returns (uint256);
 
     /**
-     * @notice Mapping: operator => number of signed delegation nonces (used in `delegateTo` and `delegateToBySignature` if the operator
-     * has specified a nonzero address as their `delegationApprover`)
+     * @notice Mapping: delegationApprover => 32-byte salt => whether or not the salt has already been used by the delegationApprover.
+     * @dev Salts are used in the `delegateTo` and `delegateToBySignature` functions. Note that these functions only process the delegationApprover's
+     * signature + the provided salt if the operator being delegated to has specified a nonzero address as their `delegationApprover`.
      */
-    function delegationApproverNonce(address operator) external view returns (uint256);
+    function delegationApproverSaltIsSpent(address delegationApprover, bytes32 salt) external view returns (bool);
 
     /**
-     * @notice External getter function that mirrors the staker signature hash calculation in the `delegateToBySignature` function
+     * @notice External function that calculates the digestHash for a `staker` to sign in order to approve their delegation to an `operator`,
+     * using the staker's current nonce and specifying an expiration of `expiry`
      * @param staker The signing staker
-     * @param operator The operator who is being delegated
+     * @param operator The operator who is being delegated to
      * @param expiry The desired expiry time of the staker's signature
      */
-    function calculateStakerDigestHash(address staker, address operator, uint256 expiry) external view returns (bytes32 stakerDigestHash);
+    function calculateCurrentStakerDelegationDigestHash(address staker, address operator, uint256 expiry) external view returns (bytes32);
 
     /**
-     * @notice External getter function that mirrors the approver signature hash calculation in the `_delegate` function
+     * @notice Public function for the staker signature hash calculation in the `delegateToBySignature` function
+     * @param staker The signing staker
+     * @param stakerNonce The nonce of the staker. In practice we use the staker's current nonce, stored at `stakerNonce[staker]`
+     * @param operator The operator who is being delegated to
+     * @param expiry The desired expiry time of the staker's signature
+     */
+    function calculateStakerDelegationDigestHash(address staker, uint256 stakerNonce, address operator, uint256 expiry) external view returns (bytes32);
+
+    /**
+     * @notice Public function for the the approver signature hash calculation in the internal `_delegate` function, which is called by both
+     * the `delegateTo` and `delegateToBySignature` functions.
+     * Calculates the digestHash for the `operator`'s "delegationApprover" to sign in order to approve the
+     * delegation of `staker` to the `operator`, using the approver's provided `salt` and specifying an expiration of `expiry`
      * @param staker The staker who is delegating to the operator
-     * @param operator The operator who is being delegated
+     * @param operator The operator who is being delegated to
+     * @param _delegationApprover the operator's `delegationApprover` who will be signing the delegationHash (in general)
+     * @param approverSalt The salt provided by the approver. Each salt can only be used once by a given approver.
      * @param expiry The desired expiry time of the approver's signature
      */
-    function calculateApproverDigestHash(address staker, address operator, uint256 expiry) external view returns (bytes32);
+    function calculateDelegationApprovalDigestHash(
+        address staker,
+        address operator,
+        address _delegationApprover,
+        bytes32 approverSalt,
+        uint256 expiry
+    ) external view returns (bytes32);
 
     /// @notice The EIP-712 typehash for the contract's domain
     function DOMAIN_TYPEHASH() external view returns (bytes32);

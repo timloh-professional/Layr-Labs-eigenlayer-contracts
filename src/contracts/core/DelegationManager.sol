@@ -71,7 +71,7 @@ contract DelegationManager is Initializable, OwnableUpgradeable, Pausable, Deleg
         _setOperatorDetails(msg.sender, registeringOperatorDetails);
         SignatureWithExpiry memory emptySignatureAndExpiry;
         // delegate from the operator to themselves
-        _delegate(msg.sender, msg.sender, emptySignatureAndExpiry);
+        _delegate(msg.sender, msg.sender, emptySignatureAndExpiry, bytes32(0));
         // emit events
         emit OperatorRegistered(msg.sender, registeringOperatorDetails);
         emit OperatorMetadataURIUpdated(msg.sender, metadataURI);
@@ -108,10 +108,11 @@ contract DelegationManager is Initializable, OwnableUpgradeable, Pausable, Deleg
      * is the `msg.sender`, then approval is assumed.
      * @dev In the event that `approverSignatureAndExpiry` is not checked, its content is ignored entirely; it's recommended to use an empty input
      * in this case to save on complexity + gas costs
+     * @param approverSalt Is a salt used to help guarantee signature uniqueness. Each salt can only be used once by a given approver.
      */
-    function delegateTo(address operator, SignatureWithExpiry memory approverSignatureAndExpiry) external {
+    function delegateTo(address operator, SignatureWithExpiry memory approverSignatureAndExpiry, bytes32 approverSalt) external {
         // go through the internal delegation flow, checking the `approverSignatureAndExpiry` if applicable
-        _delegate(msg.sender, operator, approverSignatureAndExpiry);
+        _delegate(msg.sender, operator, approverSignatureAndExpiry, approverSalt);
     }
 
     /**
@@ -127,30 +128,30 @@ contract DelegationManager is Initializable, OwnableUpgradeable, Pausable, Deleg
      * is the `msg.sender`, then approval is assumed.
      * @dev In the event that `approverSignatureAndExpiry` is not checked, its content is ignored entirely; it's recommended to use an empty input
      * in this case to save on complexity + gas costs
+     * @param approverSalt Is a salt used to help guarantee signature uniqueness. Each salt can only be used once by a given approver.
      */
     function delegateToBySignature(
         address staker,
         address operator,
         SignatureWithExpiry memory stakerSignatureAndExpiry,
-        SignatureWithExpiry memory approverSignatureAndExpiry
+        SignatureWithExpiry memory approverSignatureAndExpiry,
+        bytes32 approverSalt
     ) external {
         // check the signature expiry
         require(stakerSignatureAndExpiry.expiry >= block.timestamp, "DelegationManager.delegateToBySignature: staker signature expired");
-        // calculate the struct hash, then increment `staker`'s nonce
+
+        // calculate the digest hash, then increment `staker`'s nonce
         uint256 currentStakerNonce = stakerNonce[staker];
-        bytes32 stakerStructHash = keccak256(abi.encode(STAKER_DELEGATION_TYPEHASH, staker, operator, currentStakerNonce, stakerSignatureAndExpiry.expiry));
+        bytes32 stakerDigestHash = calculateStakerDelegationDigestHash(staker, currentStakerNonce, operator, stakerSignatureAndExpiry.expiry);
         unchecked {
             stakerNonce[staker] = currentStakerNonce + 1;
         }
-
-        // calculate the digest hash
-        bytes32 stakerDigestHash = keccak256(abi.encodePacked("\x19\x01", domainSeparator(), stakerStructHash));
 
         // actually check that the signature is valid
         EIP1271SignatureUtils.checkSignature_EIP1271(staker, stakerDigestHash, stakerSignatureAndExpiry.signature);
 
         // go through the internal delegation flow, checking the `approverSignatureAndExpiry` if applicable
-        _delegate(staker, operator, approverSignatureAndExpiry);
+        _delegate(staker, operator, approverSignatureAndExpiry, approverSalt);
     }
 
     /**
@@ -162,10 +163,10 @@ contract DelegationManager is Initializable, OwnableUpgradeable, Pausable, Deleg
      */
     function undelegate(address staker) external onlyStrategyManager {
         require(!isOperator(staker), "DelegationManager.undelegate: operators cannot undelegate from themselves");
-        address _delegatedTo = delegatedTo[staker];
+        address operator = delegatedTo[staker];
         // only make storage changes + emit an event if the staker is actively delegated, otherwise do nothing
-        if (_delegatedTo != address(0)) {
-            emit StakerUndelegated(staker, delegatedTo[staker]);
+        if (operator != address(0)) {
+            emit StakerUndelegated(staker, operator);
             delegatedTo[staker] = address(0);
         }
     }
@@ -173,18 +174,16 @@ contract DelegationManager is Initializable, OwnableUpgradeable, Pausable, Deleg
     // TODO: decide if on the right  auth for this. Perhaps could be another address for the operator to specify
     /**
      * @notice Called by the operator or the operator's `delegationApprover` address, in order to forcibly undelegate a staker who is currently delegated to the operator.
-     * @param operator The operator who the @param staker is currently delegated to.
-     * @dev This function will revert if either:
-     * A) The `msg.sender` does not match `operatorDetails(operator).delegationApprover`.
-     * OR
-     * B) The `staker` is not currently delegated to the `operator`.
-     * @dev This function will also revert if the `staker` is the `operator`; operators are considered *permanently* delegated to themselves.
+     * @param staker The staker to be force-undelegated.
+     * @dev This function will revert if the `msg.sender` is not the operator who the staker is delegated to, nor the operator's specified "delegationApprover"
+     * @dev This function will also revert if the `staker` is themeselves an operator; operators are considered *permanently* delegated to themselves.
      * @return The root of the newly queued withdrawal.
      * @dev Note that it is assumed that a staker places some trust in an operator, in paricular for the operator to not get slashed; a malicious operator can use this function
      * to inconvenience a staker who is delegated to them, but the expectation is that the inconvenience is minor compared to the operator getting purposefully slashed.
      */
-    function forceUndelegation(address staker, address operator) external returns (bytes32) {
-        require(delegatedTo[staker] == operator, "DelegationManager.forceUndelegation: staker is not delegated to operator");
+    function forceUndelegation(address staker) external returns (bytes32) {
+        address operator = delegatedTo[staker];
+        require(staker != operator, "DelegationManager.forceUndelegation: operators cannot be force-undelegated");
         require(msg.sender == operator || msg.sender == _operatorDetails[operator].delegationApprover,
             "DelegationManager.forceUndelegation: caller must be operator or their delegationApprover");
         return strategyManager.forceTotalWithdrawal(staker);
@@ -252,13 +251,19 @@ contract DelegationManager is Initializable, OwnableUpgradeable, Pausable, Deleg
      * @notice Internal function implementing the delegation *from* `staker` *to* `operator`.
      * @param staker The address to delegate *from* -- this address is delegating control of its own assets.
      * @param operator The address to delegate *to* -- this address is being given power to place the `staker`'s assets at risk on services
+     * @param approverSalt Is a salt used to help guarantee signature uniqueness. Each salt can only be used once by a given approver.
      * @dev Ensures that:
      * 1) the `staker` is not already delegated to an operator
      * 2) the `operator` has indeed registered as an operator in EigenLayer
      * 3) the `operator` is not actively frozen
      * 4) if applicable, that the approver signature is valid and non-expired
      */ 
-    function _delegate(address staker, address operator, SignatureWithExpiry memory approverSignatureAndExpiry) internal onlyWhenNotPaused(PAUSED_NEW_DELEGATION) {
+    function _delegate(
+        address staker,
+        address operator,
+        SignatureWithExpiry memory approverSignatureAndExpiry,
+        bytes32 approverSalt
+    ) internal onlyWhenNotPaused(PAUSED_NEW_DELEGATION) {
         require(!isDelegated(staker), "DelegationManager._delegate: staker is already actively delegated");
         require(isOperator(operator), "DelegationManager._delegate: operator is not registered in EigenLayer");
         require(!slasher.isFrozen(operator), "DelegationManager._delegate: cannot delegate to a frozen operator");
@@ -273,18 +278,13 @@ contract DelegationManager is Initializable, OwnableUpgradeable, Pausable, Deleg
         if (_delegationApprover != address(0) && msg.sender != _delegationApprover && msg.sender != operator) {
             // check the signature expiry
             require(approverSignatureAndExpiry.expiry >= block.timestamp, "DelegationManager._delegate: approver signature expired");
-
-            // calculate the struct hash, then increment `delegationApprover`'s nonce
-            uint256 currentApproverNonce = delegationApproverNonce[_delegationApprover];
-            bytes32 approverStructHash = keccak256(
-                abi.encode(DELEGATION_APPROVAL_TYPEHASH, _delegationApprover, staker, operator, currentApproverNonce, approverSignatureAndExpiry.expiry)
-            );
-            unchecked {
-                delegationApproverNonce[_delegationApprover] = currentApproverNonce + 1;
-            }
+            // check that the salt hasn't been used previously, then mark the salt as spent
+            require(!delegationApproverSaltIsSpent[_delegationApprover][approverSalt], "DelegationManager._delegate: approverSalt already spent");
+            delegationApproverSaltIsSpent[_delegationApprover][approverSalt] = true;
 
             // calculate the digest hash
-            bytes32 approverDigestHash = keccak256(abi.encodePacked("\x19\x01", domainSeparator(), approverStructHash));
+            bytes32 approverDigestHash =
+                calculateDelegationApprovalDigestHash(staker, operator, _delegationApprover, approverSalt, approverSignatureAndExpiry.expiry);
 
             // actually check that the signature is valid
             EIP1271SignatureUtils.checkSignature_EIP1271(_delegationApprover, approverDigestHash, approverSignatureAndExpiry.signature);
@@ -356,35 +356,57 @@ contract DelegationManager is Initializable, OwnableUpgradeable, Pausable, Deleg
     }
 
     /**
-     * @notice External getter function that mirrors the staker signature hash calculation in the `delegateToBySignature` function
+     * @notice External function that calculates the digestHash for a `staker` to sign in order to approve their delegation to an `operator`,
+     * using the staker's current nonce and specifying an expiration of `expiry`
      * @param staker The signing staker
-     * @param operator The operator who is being delegated
+     * @param operator The operator who is being delegated to
      * @param expiry The desired expiry time of the staker's signature
      */
-    function calculateStakerDigestHash(address staker, address operator, uint256 expiry) external view returns (bytes32) {
-        // get the staker's current nonce and caluclate the struct hash
+    function calculateCurrentStakerDelegationDigestHash(address staker, address operator, uint256 expiry) external view returns (bytes32) {
+        // fetch the staker's current nonce
         uint256 currentStakerNonce = stakerNonce[staker];
-        bytes32 stakerStructHash = keccak256(abi.encode(STAKER_DELEGATION_TYPEHASH, staker, operator, currentStakerNonce, expiry));
         // calculate the digest hash
-        bytes32 stakerDigestHash = keccak256(abi.encodePacked("\x19\x01", domainSeparator(), stakerStructHash));
-        return stakerDigestHash;
+        return calculateStakerDelegationDigestHash(staker, currentStakerNonce, operator, expiry);
     }
 
     /**
-     * @notice External getter function that mirrors the approver signature hash calculation in the `_delegate` function
+     * @notice Public function for the staker signature hash calculation in the `delegateToBySignature` function
+     * @param staker The signing staker
+     * @param stakerNonce The nonce of the staker. In practice we use the staker's current nonce, stored at `stakerNonce[staker]`
+     * @param operator The operator who is being delegated to
+     * @param expiry The desired expiry time of the staker's signature
+     */
+    function calculateStakerDelegationDigestHash(address staker, uint256 stakerNonce, address operator, uint256 expiry) public view returns (bytes32) {
+        // calculate the struct hash
+        bytes32 stakerStructHash = keccak256(abi.encode(STAKER_DELEGATION_TYPEHASH, staker, operator, stakerNonce, expiry));
+        // calculate the digest hash
+        bytes32 stakerDigestHash = keccak256(abi.encodePacked("\x19\x01", domainSeparator(), stakerStructHash));
+        return stakerDigestHash;
+    }        
+
+    /**
+     * @notice Public function for the the approver signature hash calculation in the internal `_delegate` function, which is called by both
+     * the `delegateTo` and `delegateToBySignature` functions.
+     * Calculates the digestHash for the `operator`'s "delegationApprover" to sign in order to approve the
+     * delegation of `staker` to the `operator`, using the approver's provided `salt` and specifying an expiration of `expiry`
      * @param staker The staker who is delegating to the operator
-     * @param operator The operator who is being delegated
+     * @param operator The operator who is being delegated to
+     * @param _delegationApprover the operator's `delegationApprover` who will be signing the delegationHash (in general)
+     * @param approverSalt The salt provided by the approver. Each salt can only be used once by a given approver.
      * @param expiry The desired expiry time of the approver's signature
      */
-    function calculateApproverDigestHash(address staker, address operator, uint256 expiry) external view returns (bytes32) {
-            // fetch the operator's `delegationApprover` address and store it in memory in case we need to use it multiple times
-            address _delegationApprover = _operatorDetails[operator].delegationApprover;
-            // get the approver's current nonce and caluclate the struct hash
-            uint256 currentApproverNonce = delegationApproverNonce[_delegationApprover];
-            bytes32 approverStructHash = keccak256(abi.encode(DELEGATION_APPROVAL_TYPEHASH, _delegationApprover, staker, operator, currentApproverNonce, expiry));
-            // calculate the digest hash
-            bytes32 approverDigestHash = keccak256(abi.encodePacked("\x19\x01", domainSeparator(), approverStructHash));
-            return approverDigestHash;
+    function calculateDelegationApprovalDigestHash(
+        address staker,
+        address operator,
+        address _delegationApprover,
+        bytes32 approverSalt,
+        uint256 expiry
+    ) public view returns (bytes32) {
+        // calculate the struct hash
+        bytes32 approverStructHash = keccak256(abi.encode(DELEGATION_APPROVAL_TYPEHASH, _delegationApprover, staker, operator, approverSalt, expiry));
+        // calculate the digest hash
+        bytes32 approverDigestHash = keccak256(abi.encodePacked("\x19\x01", domainSeparator(), approverStructHash));
+        return approverDigestHash;
     }
 
     // @notice Internal function for calculating the current domain separator of this contract

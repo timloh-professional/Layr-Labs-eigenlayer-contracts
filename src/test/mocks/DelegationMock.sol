@@ -18,7 +18,7 @@ contract DelegationMock is IDelegationManager, Test {
     
     function updateOperatorMetadataURI(string calldata /*metadataURI*/) external pure {}
 
-    function delegateTo(address operator, SignatureWithExpiry memory /*approverSignatureAndExpiry*/) external {
+    function delegateTo(address operator, SignatureWithExpiry memory /*approverSignatureAndExpiry*/, bytes32 /*approverSalt*/) external {
         delegatedTo[msg.sender] = operator;
     }
 
@@ -28,14 +28,15 @@ contract DelegationMock is IDelegationManager, Test {
         address /*staker*/,
         address /*operator*/,
         SignatureWithExpiry memory /*stakerSignatureAndExpiry*/,
-        SignatureWithExpiry memory /*approverSignatureAndExpiry*/
+        SignatureWithExpiry memory /*approverSignatureAndExpiry*/,
+        bytes32 /*approverSalt*/
     ) external pure {}
 
     function undelegate(address staker) external {
         delegatedTo[staker] = address(0);
     }
 
-    function forceUndelegation(address /*staker*/, address /*operator*/) external pure returns (bytes32) {}
+    function forceUndelegation(address /*staker*/) external pure returns (bytes32) {}
 
     function increaseDelegatedShares(address /*staker*/, IStrategy /*strategy*/, uint256 /*shares*/) external pure {}
 
@@ -74,7 +75,19 @@ contract DelegationMock is IDelegationManager, Test {
 
     function stakerNonce(address /*staker*/) external pure returns (uint256) {}
 
-    function delegationApproverNonce(address /*operator*/) external pure returns (uint256) {}
+    function delegationApproverSaltIsSpent(address /*delegationApprover*/, bytes32 /*salt*/) external pure returns (bool) {}
+
+    function calculateCurrentStakerDelegationDigestHash(address /*staker*/, address /*operator*/, uint256 /*expiry*/) external view returns (bytes32) {}
+
+    function calculateStakerDelegationDigestHash(address /*staker*/, uint256 /*stakerNonce*/, address /*operator*/, uint256 /*expiry*/) external view returns (bytes32) {}
+
+    function calculateDelegationApprovalDigestHash(
+        address /*staker*/,
+        address /*operator*/,
+        address /*_delegationApprover*/,
+        bytes32 /*approverSalt*/,
+        uint256 /*expiry*/
+    ) external view returns (bytes32) {}
 
     function calculateStakerDigestHash(address /*staker*/, address /*operator*/, uint256 /*expiry*/)
         external pure returns (bytes32 stakerDigestHash) {}

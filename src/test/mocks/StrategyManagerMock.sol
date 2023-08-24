@@ -42,7 +42,7 @@ contract StrategyManagerMock is
     function depositBeaconChainETH(address staker, uint256 amount) external{}
 
 
-    function recordOvercommittedBeaconChainETH(address overcommittedPodOwner, uint256 beaconChainETHStrategyIndex, uint256 amount)
+    function recordBeaconChainETHBalanceUpdate(address overcommittedPodOwner, uint256 beaconChainETHStrategyIndex, int256 sharesDelta)
         external{}
 
     function depositIntoStrategyWithSignature(
@@ -140,5 +140,11 @@ contract StrategyManagerMock is
 
     function undelegate() external pure {}
 
-    function forceTotalWithdrawal(address /*staker*/) external pure returns (bytes32) {} 
+    event ForceTotalWithdrawalCalled(address staker);
+
+    function forceTotalWithdrawal(address staker) external returns (bytes32) {
+        bytes32 emptyReturnValue;
+        emit ForceTotalWithdrawalCalled(staker);
+        return emptyReturnValue;
+    }
 }
