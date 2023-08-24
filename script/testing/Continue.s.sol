@@ -66,7 +66,7 @@ contract GenericDelegationTraffic is DeployOpenEigenLayer {
             //     }
             // }
             IDelegationManager.SignatureWithExpiry memory approverSignatureAndExpiry;
-            delegation.delegateTo(operators[i], approverSignatureAndExpiry);
+            delegation.delegateTo(operators[i], approverSignatureAndExpiry, bytes32(0));
             vm.stopBroadcast();
         }
     }

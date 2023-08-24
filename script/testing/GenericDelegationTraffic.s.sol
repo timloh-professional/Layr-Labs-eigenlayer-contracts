@@ -18,11 +18,11 @@ contract GenericDelegationTraffic is DeployOpenEigenLayer {
         uint256 numStrategies = stdJson.readUint(config_data, ".numStrategies");
         StrategyConfig[] memory strategyConfigs = new StrategyConfig[](numStrategies);
 
-        // vm.startBroadcast(msg.sender);
+        vm.startBroadcast(msg.sender);
 
         // deploy a token and create a strategy config for each token
         for (uint8 i = 0; i < numStrategies; i++) {
-            address tokenAddress = address(new ERC20PresetFixedSupply(string(abi.encodePacked("Token", i)), string(abi.encodePacked("TOK", i)), 1000 ether, msg.sender));
+            address tokenAddress = address(new ERC20PresetFixedSupply(string.concat("Token", vm.toString(i)), string.concat("TOK", vm.toString(i)), 1000 ether, msg.sender));
             strategyConfigs[i] = StrategyConfig({
                 maxDeposits: type(uint256).max,
                 maxPerDeposit: type(uint256).max,
@@ -31,9 +31,9 @@ contract GenericDelegationTraffic is DeployOpenEigenLayer {
             });
         }
 
-        // _deployEigenLayer(msg.sender, msg.sender, msg.sender, strategyConfigs);
+        _deployEigenLayer(msg.sender, msg.sender, msg.sender, strategyConfigs);
 
-        // vm.stopBroadcast();
+        vm.stopBroadcast();
 
         uint256[] memory stakerPrivateKeys = stdJson.readUintArray(config_data, ".stakerPrivateKeys");
         address[] memory stakers = new address[](stakerPrivateKeys.length);
@@ -101,7 +101,7 @@ contract GenericDelegationTraffic is DeployOpenEigenLayer {
             address earningsReceiver = address(uint160(uint256(keccak256(abi.encodePacked(operatorPrivateKeys[i])))));
             address delegationApprover = address(0); //address(uint160(uint256(keccak256(abi.encodePacked(earningsReceiver)))));
             uint32 stakerOptOutWindowBlocks = 100;
-            string memory metadataURI = string(abi.encodePacked("https://urmom.com/operator/", i));
+            string memory metadataURI = string.concat("https://urmom.com/operator/", vm.toString(i));
             delegation.registerAsOperator(IDelegationManager.OperatorDetails(earningsReceiver, delegationApprover, stakerOptOutWindowBlocks), metadataURI);
         }
 
@@ -119,7 +119,7 @@ contract GenericDelegationTraffic is DeployOpenEigenLayer {
                 }
             }
             IDelegationManager.SignatureWithExpiry memory approverSignatureAndExpiry;
-            delegation.delegateTo(operators[i], approverSignatureAndExpiry);
+            delegation.delegateTo(operators[i], approverSignatureAndExpiry, bytes32(0));
             vm.stopBroadcast();
         }
     }
