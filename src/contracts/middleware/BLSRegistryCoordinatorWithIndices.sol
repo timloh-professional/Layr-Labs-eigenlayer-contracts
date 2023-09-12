@@ -399,10 +399,10 @@ contract BLSRegistryCoordinatorWithIndices is EIP712, Initializable, IBLSRegistr
 
     /// @return numOperatorsPerQuorum is the list of number of operators per quorum in quorumNumberss
     function _registerOperatorWithCoordinator(address operator, bytes calldata quorumNumbers, BN254.G1Point memory pubkey, string memory socket) internal returns(uint32[] memory) {
-        // require(
-        //     slasher.contractCanSlashOperatorUntilBlock(operator, address(serviceManager)) == type(uint32).max,
-        //     "StakeRegistry._registerOperator: operator must be opted into slashing by the serviceManager"
-        // );
+        require(
+            slasher.contractCanSlashOperatorUntilBlock(operator, address(serviceManager)) == type(uint32).max,
+            "StakeRegistry._registerOperator: operator must be opted into slashing by the serviceManager"
+        );
         
         // get the quorum bitmap from the quorum numbers
         uint256 quorumBitmap = BitmapUtils.orderedBytesArrayToBitmap(quorumNumbers);
@@ -439,7 +439,7 @@ contract BLSRegistryCoordinatorWithIndices is EIP712, Initializable, IBLSRegistr
         });
 
         // record a stake update not bonding the operator at all (unbonded at 0), because they haven't served anything yet
-        // serviceManager.recordFirstStakeUpdate(operator, 0);
+        serviceManager.recordFirstStakeUpdate(operator, 0);
 
         emit OperatorSocketUpdate(operatorId, socket);
 
@@ -500,7 +500,7 @@ contract BLSRegistryCoordinatorWithIndices is EIP712, Initializable, IBLSRegistr
             uint32 latestServeUntilBlock = serviceManager.latestServeUntilBlock();
 
             // record a stake update unbonding the operator after `latestServeUntilBlock`
-            // serviceManager.recordLastStakeUpdateAndRevokeSlashingAbility(operator, latestServeUntilBlock);
+            serviceManager.recordLastStakeUpdateAndRevokeSlashingAbility(operator, latestServeUntilBlock);
             // set the status of the operator to DEREGISTERED
             _operators[operator].status = OperatorStatus.DEREGISTERED;
         }

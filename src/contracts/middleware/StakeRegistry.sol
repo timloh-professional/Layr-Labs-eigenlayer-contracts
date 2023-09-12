@@ -283,12 +283,12 @@ contract StakeRegistry is StakeRegistryStorage {
         }
 
         // record stake updates in the EigenLayer Slasher
-        // for (uint i = 0; i < operators.length;) {
-        //     serviceManager.recordStakeUpdate(operators[i], uint32(block.number), serviceManager.latestServeUntilBlock(), prevElements[i]);
-        //     unchecked {
-        //         ++i;
-        //     }
-        // }     
+        for (uint i = 0; i < operators.length;) {
+            serviceManager.recordStakeUpdate(operators[i], uint32(block.number), serviceManager.latestServeUntilBlock(), prevElements[i]);
+            unchecked {
+                ++i;
+            }
+        }     
     }
 
     // INTERNAL FUNCTIONS
@@ -389,7 +389,7 @@ contract StakeRegistry is StakeRegistryStorage {
 
     /**
      * @notice Finds the updated stake for `operator`, stores it and records the update.
-     * @dev **DOES NOT UPDATE `totalStake` IN ANY WAY** -- `totalStake` updates must be done elsewhere.
+     * @dev **DOES NOT _UPDATE `totalStake` IN ANY WAY** -- `totalStake` updates must be done elsewhere.
      */
     function _updateOperatorStake(address operator, bytes32 operatorId, uint8 quorumNumber)
         internal
