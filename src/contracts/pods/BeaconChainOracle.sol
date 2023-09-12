@@ -27,21 +27,21 @@ contract BeaconChainOracle is IBeaconChainOracle, Ownable {
     /// @notice Largest blockNumber that has been confirmed by the oracle.
     uint64 public latestConfirmedOracleBlockNumber;
 
-    /// @notice Mapping: Beacon Chain blockNumber => the Beacon Chain state root at the specified blockNumber.
+    /// @notice Mapping: Beacon Chain timestamp => the Beacon block root at the specified timestamp.
     /// @dev This will return `bytes32(0)` if the state root at the specified blockNumber is not yet confirmed.
-    mapping(uint64 => bytes32) public beaconStateRootAtBlockNumber;
+    mapping(uint64 => bytes32) public beaconBlockRootAtTimestamp;
     /// @notice Mapping: address => whether or not the address is in the set of oracle signers.
     mapping(address => bool) public isOracleSigner; 
     /// @notice Mapping: Beacon Chain blockNumber => oracle signer address => whether or not the oracle signer has voted on the state root at the blockNumber.
     mapping(uint64 => mapping(address => bool)) public hasVoted;
-    /// @notice Mapping: Beacon Chain blockNumber => state root => total number of oracle signer votes for the state root at the blockNumber. 
-    mapping(uint64 => mapping(bytes32 => uint256)) public stateRootVotes;
+    /// @notice Mapping: Beacon Chain timestamp => block root => total number of oracle signer votes for the state root at the blockNumber. 
+    mapping(uint64 => mapping(bytes32 => uint256)) public blockRootVotes;
 
     /// @notice Emitted when the value of the `threshold` variable is changed from `previousValue` to `newValue`.
     event ThresholdModified(uint256 previousValue, uint256 newValue);
 
-    /// @notice Emitted when the beacon chain state root at `blockNumber` is confirmed to be `stateRoot`.
-    event StateRootConfirmed(uint64 blockNumber, bytes32 stateRoot);
+    /// @notice Emitted when the beacon chain state root at `timestamp` is confirmed to be `blockRoot`.
+    event StateRootConfirmed(uint64 timestamp, bytes32 blockRoot);
 
     /// @notice Emitted when `addedOracleSigner` is added to the set of oracle signers.
     event OracleSignerAdded(address addedOracleSigner);
@@ -97,25 +97,25 @@ contract BeaconChainOracle is IBeaconChainOracle, Ownable {
     }
 
     /**
-     * @notice Called by a member of the set of oracle signers to assert that the Beacon Chain state root is `stateRoot` at `blockNumber`.
-     * @dev The state root will be confirmed once the total number of votes *for this exact state root at this exact blockNumber* meets the `threshold` value.
-     * @param blockNumber The Beacon Chain blockNumber of interest.
-     * @param stateRoot The Beacon Chain state root that the caller asserts was the correct root, at the specified `blockNumber`.
+     * @notice Called by a member of the set of oracle signers to assert that the Beacon block root is `blockRoot` at `timestamp`.
+     * @dev The state root will be confirmed once the total number of votes *for this exact state root at this exact timestamp* meets the `threshold` value.
+     * @param timestamp The Beacon Chain timestamp of interest.
+     * @param blockRoot The Beacon Chain state root that the caller asserts was the correct root, at the specified `timestamp`.
      */
-    function voteForBeaconChainStateRoot(uint64 blockNumber, bytes32 stateRoot) external onlyOracleSigner {
-        require(!hasVoted[blockNumber][msg.sender], "BeaconChainOracle.voteForBeaconChainStateRoot: Signer has already voted");
-        require(beaconStateRootAtBlockNumber[blockNumber] == bytes32(0), "BeaconChainOracle.voteForBeaconChainStateRoot: State root already confirmed");
+    function voteForBeaconChainStateRoot(uint64 timestamp, bytes32 blockRoot) external onlyOracleSigner {
+        require(!hasVoted[timestamp][msg.sender], "BeaconChainOracle.voteForBeaconChainStateRoot: Signer has already voted");
+        require(beaconBlockRootAtTimestamp[timestamp] == bytes32(0), "BeaconChainOracle.voteForBeaconChainStateRoot: State root already confirmed");
         // Mark the signer as having voted
-        hasVoted[blockNumber][msg.sender] = true;
+        hasVoted[timestamp][msg.sender] = true;
         // Increment the vote count for the state root
-        stateRootVotes[blockNumber][stateRoot] += 1;
-        // If the state root has enough votes, confirm it as the beacon state root
-        if (stateRootVotes[blockNumber][stateRoot] >= threshold) {
-            emit StateRootConfirmed(blockNumber, stateRoot);
-            beaconStateRootAtBlockNumber[blockNumber] = stateRoot;
+        blockRootVotes[timestamp][blockRoot] += 1;
+        // If the state root has enough votes, confirm it as the beacon block root
+        if (blockRootVotes[timestamp][blockRoot] >= threshold) {
+            emit StateRootConfirmed(timestamp, blockRoot);
+            beaconBlockRootAtTimestamp[timestamp] = blockRoot;
             // update latestConfirmedOracleBlockNumber if necessary
-            if (blockNumber > latestConfirmedOracleBlockNumber) {
-                latestConfirmedOracleBlockNumber = blockNumber;
+            if (timestamp > latestConfirmedOracleBlockNumber) {
+                latestConfirmedOracleBlockNumber = timestamp;
             }
         }
     }
